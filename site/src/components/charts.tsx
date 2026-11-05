@@ -14,6 +14,7 @@ import {
 } from "recharts"
 
 import type { Level } from "@/data"
+import { perMillion } from "@/pricing"
 
 export const COLORS = {
   tpu: "#1a73e8",
@@ -86,9 +87,11 @@ export function SweepChart({ metric, levels }: { metric: Metric; levels: Level[]
 export type CostRow = { setup: string; short: string; hourly: number; tps: number; color: string; perM: number }
 
 export const PRICES = {
-  tpuSpot: 2.684,
+  tpuSpot: 2.684448,
   tpuFlex: 5.4,
   tpuOnDemand: 10.8,
+  tpuCud1y: 7.56,
+  tpuCud3y: 4.88,
   h100Gpu: 3.949,
   h100Modal: 5.73,
 }
@@ -100,9 +103,11 @@ export function costRowsFor(levels: Level[]): CostRow[] {
   const fp8 = best("h100fp8")
   const rows = [
     { setup: "v6e-4 Spot (as run)", short: "v6e-4 Spot", hourly: PRICES.tpuSpot, tps: tpu, color: COLORS.tpu },
-    { setup: "v6e-4 Flex-start", short: "v6e-4 Flex", hourly: PRICES.tpuFlex, tps: tpu, color: COLORS.tpu },
+    { setup: "v6e-4 Flex-start / DWS", short: "v6e-4 Flex", hourly: PRICES.tpuFlex, tps: tpu, color: COLORS.tpu },
+    { setup: "v6e-4 3-year CUD", short: "v6e-4 3y CUD", hourly: PRICES.tpuCud3y, tps: tpu, color: COLORS.tpu },
+    { setup: "v6e-4 1-year CUD", short: "v6e-4 1y CUD", hourly: PRICES.tpuCud1y, tps: tpu, color: COLORS.tpu },
     { setup: "v6e-4 on-demand", short: "v6e-4 on-demand", hourly: PRICES.tpuOnDemand, tps: tpu, color: COLORS.tpu },
-    { setup: "H100 BF16, GPU only", short: "H100 BF16", hourly: PRICES.h100Gpu, tps: h100, color: COLORS.h100 },
+    { setup: "H100 BF16, GPU only (Modal)", short: "H100 BF16", hourly: PRICES.h100Gpu, tps: h100, color: COLORS.h100 },
     {
       setup: "H100 BF16, as run on Modal (16 vCPU, 128 GiB)",
       short: "H100 BF16 Modal",
@@ -112,9 +117,7 @@ export function costRowsFor(levels: Level[]): CostRow[] {
     },
     { setup: "H100 FP8, GPU only (reference)", short: "H100 FP8", hourly: PRICES.h100Gpu, tps: fp8, color: COLORS.fp8 },
   ]
-  return rows
-    .filter((r) => r.tps > 0)
-    .map((r) => ({ ...r, perM: Math.round((r.hourly / (r.tps * 3600)) * 1e6 * 100) / 100 }))
+  return rows.filter((r) => r.tps > 0).map((r) => ({ ...r, perM: perMillion(r.hourly, r.tps) }))
 }
 
 export function CostChart({ rows }: { rows: CostRow[] }) {
