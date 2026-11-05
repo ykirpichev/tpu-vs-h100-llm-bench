@@ -1,0 +1,4 @@
+(APIServer pid=218) INFO 11-05 18:36:45 [api_utils.py:286] non-default args: {'model_tag': '/dev/shm/qwen3.8-27b', 'model': '/dev/shm/qwen3.8-27b', 'max_model_len': 4096, 'served_model_name': ['qwen3.8-27b'], 'generation_config': 'vllm', 'tensor_parallel_size': 4, 'gpu_memory_utilization': 0.9, 'ena
+(Worker_TP0 pid=1060) INFO 11-05 18:37:48 [default_loader.py:501] Loading weights took 16.67 seconds
+(EngineCore pid=754) INFO 11-05 18:39:31 [kv_cache_utils.py:2327] TPU KV cache size: 565,703 tokens, Maximum concurrency for 4,096 tokens per request: 138.11x
+(EngineCore pid=754) INFO 11-05 18:43:38 [core.py:395] init engine (profile, create kv cache, warmup model) took 345.82 s (compilation: 235.97 s)

@@ -1,0 +1,17 @@
+11:06:53 pod requested
+11:07:54 pod running on gke-tpu-d4e29bbe-5nqs
+11:08:41 weights downloaded
+11:36:02 bring-up interrupted, retrying
+11:36:23 level 1 start
+11:37:29 level 1 done: {"concurrency": 1, "requests": 24, "ok": 24, "errors": 0, "error_sample": [], "wall_s": 57.13953324099998, "req_per_s": 0.42002443209982343, "out_tok_per_s": 63.00366481497351, "mean_prompt_tokens": 1
+11:37:30 level 8 start
+11:38:00 level 8 done: {"concurrency": 8, "requests": 24, "ok": 24, "errors": 0, "error_sample": [], "wall_s": 17.27926606699998, "req_per_s": 1.3889478816369005, "out_tok_per_s": 208.34218224553507, "mean_prompt_tokens": 1
+11:38:01 level 16 start
+11:38:21 level 16 done: {"concurrency": 16, "requests": 48, "ok": 48, "errors": 0, "error_sample": [], "wall_s": 13.374794203999954, "req_per_s": 3.588840266839007, "out_tok_per_s": 538.3260400258511, "mean_prompt_tokens": 1
+11:38:22 level 32 start
+11:38:54 level 32 done: {"concurrency": 32, "requests": 96, "ok": 96, "errors": 0, "error_sample": [], "wall_s": 21.58514233599999, "req_per_s": 4.447503681265512, "out_tok_per_s": 667.1255521898267, "mean_prompt_tokens": 14
+11:38:55 level 64 start
+11:39:43 level 64 done: {"concurrency": 64, "requests": 192, "ok": 192, "errors": 0, "error_sample": [], "wall_s": 34.7643842519999, "req_per_s": 5.522893735388245, "out_tok_per_s": 828.4340603082367, "mean_prompt_tokens": 1
+11:39:43 level 128 start
+11:41:30 level 128 done: {"concurrency": 128, "requests": 384, "ok": 384, "errors": 0, "error_sample": [], "wall_s": 77.81476759400016, "req_per_s": 4.934795950346166, "out_tok_per_s": 740.2193925519248, "mean_prompt_tokens":
+11:41:31 all levels done

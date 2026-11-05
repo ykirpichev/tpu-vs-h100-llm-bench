@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tsbuildinfo
+__pycache__/
+.DS_Store
+benchmark/client/images/
+benchmark/client/img576/
+benchmark/client/logs.txt

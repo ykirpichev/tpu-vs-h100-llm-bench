@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bench-tpu
+spec:
+  restartPolicy: Never
+  nodeSelector:
+    cloud.google.com/gke-tpu-accelerator: tpu-v6e-slice
+    cloud.google.com/gke-tpu-topology: 2x2
+  tolerations:
+    - key: google.com/tpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: vt
+      image: TPU_IMAGE
+      command: ["sleep", "infinity"]
+      securityContext:
+        privileged: true
+      resources:
+        requests:
+          google.com/tpu: 4
+        limits:
+          google.com/tpu: 4
+      volumeMounts:
+        - name: dshm
+          mountPath: /dev/shm
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 300Gi
