@@ -11,8 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { REPO_URL } from "@/config"
 import { results, type Example } from "@/data"
 import { MODELS, type ModelInfo } from "@/models"
+import { PEAKS, STUDY_SPEND, TIERS, fmtMoney, perMillion } from "@/pricing"
 
 const NAV = [
+  ["tldr", "TLDR"],
+  ["pricing", "Pricing"],
   ["results", "Results"],
   ["setup", "Setup"],
   ["method", "Method"],
@@ -271,22 +274,40 @@ export default function App() {
       </header>
 
       <main id="top" className="mx-auto max-w-6xl px-4 sm:px-6">
-        <section className="pt-12 pb-8 sm:pt-20">
+                <section id="tldr" className="scroll-mt-20 pt-12 pb-8 sm:pt-16">
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">Benchmark study</Badge>
             <Badge variant="secondary">Nov 4 – 5, 2026</Badge>
             <Badge variant="secondary">vLLM 0.32 · TorchTPU</Badge>
             <Badge variant="secondary">{available.length} models</Badge>
           </div>
-          <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+          <p className="mt-4 text-sm font-medium tracking-wide text-blue-700 uppercase">TLDR</p>
+          <h1 className="mt-1 max-w-4xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
             Serving vision-language models on a TPU v6e-4, and how it compares with an H100
           </h1>
+          <div className="mt-6 max-w-3xl space-y-3 rounded-lg border border-blue-100 bg-blue-50/50 p-5 text-base leading-relaxed">
+            <p>
+              <strong>Cosmos3-Super:</strong> TPU v6e-4 peaks at <strong>{fmt(PEAKS.cosmosTpu)} tok/s</strong> (concurrency
+              64) vs <strong>{fmt(PEAKS.cosmosH100)} tok/s</strong> on 1× H100 BF16. Best measured cost is{" "}
+              <strong>{fmtMoney(perMillion(2.684448, PEAKS.cosmosTpu))}/1M</strong> output tokens on v6e Spot vs{" "}
+              <strong>{fmtMoney(perMillion(3.949, PEAKS.cosmosH100))}/1M</strong> on Modal H100 GPU-only. Field agreement
+              with H100 BF16: 92.9%.
+            </p>
+            <p>
+              <strong>Qwen3.8-27B:</strong> TPU v6e-4 peaks at <strong>{fmt(PEAKS.qwenTpu)} tok/s</strong> (concurrency
+              128) → <strong>{fmtMoney(perMillion(2.684448, PEAKS.qwenTpu))}/1M</strong> on Spot. H100 for this model is
+              still pending — no H100 throughput, cost, or agreement numbers are invented.
+            </p>
+            <p>
+              <strong>Overall study spend (estimate):</strong> {STUDY_SPEND.total.label} — Cosmos TPU {STUDY_SPEND.cosmosTpu.label},
+              Qwen TPU {STUDY_SPEND.qwenTpu.label}, Cosmos H100 Modal {STUDY_SPEND.h100Modal.label}. Derived from driver /
+              result wall times × list prices, not a billing export.
+            </p>
+          </div>
           <p className="mt-5 max-w-3xl text-lg text-pretty text-muted-foreground">
-            We ran the same models, the same vLLM server, the same images and prompt, and the same load generator on a
-            4-chip Cloud TPU v6e and on a single NVIDIA H100, for two models with very different architectures: the dense
-            Cosmos3-Super Reasoner and the hybrid linear-attention Qwen3.8-27B. This page explains the setup, how we kept
-            the comparison fair, what we measured, and what we learned getting TPU capacity. The Qwen3.8-27B H100 run is
-            still pending, so that model currently shows TPU v6e results only.
+            Same vLLM server, images, prompt, and load generator on a 4-chip Cloud TPU v6e and a single NVIDIA H100, for
+            two architectures: dense Cosmos3-Super and hybrid Gated DeltaNet Qwen3.8-27B. One shareable page covers the
+            TLDR, every pricing tier we can cite, and the full method and results.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-3">
@@ -331,6 +352,102 @@ export default function App() {
             <Stat icon={<Cpu className="size-4" />} {...TPU_TIME[modelId]} />
           </div>
         </section>
+
+        <Separator />
+
+        <Separator />
+
+        <Section id="pricing" eyebrow="Pricing tiers" title="Hourly rate and $/1M at measured peak tok/s">
+          <p className="max-w-3xl text-muted-foreground">
+            Every tier below uses the same peak throughput from this study (Cosmos3 TPU {fmt(PEAKS.cosmosTpu)} tok/s,
+            Cosmos3 H100 BF16 {fmt(PEAKS.cosmosH100)} tok/s, Qwen3.8 TPU {fmt(PEAKS.qwenTpu)} tok/s). Prices are list
+            prices read on Nov 5, 2026. Unverified or commitment-only rows are marked. H100 columns for Qwen stay empty
+            until that sweep runs.
+          </p>
+          <Tabs defaultValue="tpu">
+            <TabsList>
+              <TabsTrigger value="tpu">TPU v6e-4</TabsTrigger>
+              <TabsTrigger value="h100-modal">H100 Modal</TabsTrigger>
+              <TabsTrigger value="h100-gcp">GCP A3 H100</TabsTrigger>
+            </TabsList>
+            {(
+              [
+                ["tpu", "tpu", PEAKS.cosmosTpu, PEAKS.qwenTpu] as const,
+                ["h100-modal", "h100-modal", PEAKS.cosmosH100, null] as const,
+                ["h100-gcp", "h100-gcp", PEAKS.cosmosH100, null] as const,
+              ] as const
+            ).map(([tab, group, cosmosPeak, qwenPeak]) => (
+              <TabsContent key={tab} value={tab} className="pt-4">
+                <div className="overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tier</TableHead>
+                        <TableHead className="text-right">$/hr</TableHead>
+                        <TableHead className="text-right">Cosmos $/1M</TableHead>
+                        <TableHead className="text-right">Qwen $/1M</TableHead>
+                        <TableHead>Region / source</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {TIERS.filter((t) => t.group === group).map((t) => (
+                        <TableRow key={t.id}>
+                          <TableCell className="whitespace-normal font-medium">
+                            {t.label}
+                            {!t.verified && (
+                              <Badge variant="secondary" className="ml-2">
+                                unverified
+                              </Badge>
+                            )}
+                            <div className="text-xs font-normal text-muted-foreground">{t.unit}</div>
+                            {t.note && <div className="text-xs font-normal text-muted-foreground">{t.note}</div>}
+                          </TableCell>
+                          <TableCell className="text-right">{fmtMoney(t.hourly, t.hourly >= 10 ? 2 : 3)}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {fmtMoney(perMillion(t.hourly, cosmosPeak))}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {qwenPeak != null ? (
+                              <span className="font-medium">{fmtMoney(perMillion(t.hourly, qwenPeak))}</span>
+                            ) : (
+                              <span className="text-muted-foreground">pending</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="max-w-xs whitespace-normal text-xs text-muted-foreground">
+                            <div>{t.region}</div>
+                            <div>{t.source}</div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+          <Card className="bg-neutral-50">
+            <CardHeader>
+              <CardTitle className="text-base">Study spend estimate</CardTitle>
+              <CardDescription>From result JSON / driver logs × list prices. Not a GCP or Modal invoice.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                <li>
+                  {STUDY_SPEND.cosmosTpu.label} — {STUDY_SPEND.cosmosTpu.detail}
+                </li>
+                <li>
+                  {STUDY_SPEND.qwenTpu.label} — {STUDY_SPEND.qwenTpu.detail}
+                </li>
+                <li>
+                  {STUDY_SPEND.h100Modal.label} — {STUDY_SPEND.h100Modal.detail}
+                </li>
+                <li>
+                  <strong className="text-neutral-900">Total {STUDY_SPEND.total.label}</strong> — {STUDY_SPEND.total.detail}
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </Section>
 
         <Separator />
 
