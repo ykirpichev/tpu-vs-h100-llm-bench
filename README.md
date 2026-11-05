@@ -1,10 +1,10 @@
-# TPU v6e vs H100: serving Cosmos3-Super
+# TPU v6e vs H100: serving Cosmos3-Super and Qwen3.8-27B
 
-A TPU Builders study. We served NVIDIA's Cosmos3-Super Reasoner, a 33B vision-language model, on a 4-chip Cloud TPU v6e with vLLM TorchTPU and on a single NVIDIA H100 with vLLM. Both ran in BF16 with the same plugin, flags, images, prompt and load generator.
+A TPU Builders study. We served two vision-language models on a 4-chip Cloud TPU v6e with vLLM TorchTPU and on a single NVIDIA H100 with vLLM: NVIDIA's Cosmos3-Super Reasoner, a dense 33B model, and Qwen3.8-27B, a hybrid Gated DeltaNet and full-attention model. Both sides run in BF16 with the same flags, images, prompt and load generator. The Qwen3.8-27B H100 run is still pending, so that model has TPU results only.
 
-**Site:** https://ykirpichev.github.io/tpu-vs-h100-llm-bench/ walks through the setup, the method, the results and the lessons.
+**Site:** https://ykirpichev.github.io/tpu-vs-h100-llm-bench/ walks through the setup, the method, the results and the lessons, with a switch between the two models.
 
-## Results
+## Results: Cosmos3-Super
 
 | | TPU v6e-4, BF16 | 1x H100, BF16 | 1x H100, FP8 (reference) |
 | --- | --- | --- | --- |
@@ -17,6 +17,21 @@ A TPU Builders study. We served NVIDIA's Cosmos3-Super Reasoner, a 33B vision-la
 The v6e-4 has 128 GB of HBM, so with 65 GB of weights its KV cache holds about 120 concurrent requests. One H100 holds about 24 in BF16 and queues the rest, so its throughput stops rising after concurrency 32.
 
 Getting capacity was harder than getting the software to work. Three Spot TPU VMs were preempted within 16 minutes, and on-demand v6e-4 was unavailable in every zone we tried. A GKE Spot node pool in `us-east1-d` came up in about 8 minutes and ran the full sweep without being preempted. The TPU time for the whole exercise cost about $3.40.
+
+## Results: Qwen3.8-27B (TPU v6e only, H100 pending)
+
+| Concurrency | TPU v6e-4 BF16, tok/s | TTFT p50 | Per-token p50 | 1x H100, BF16 |
+| --- | --- | --- | --- | --- |
+| 1 | 78 | 0.13 s | 12.0 ms | pending |
+| 8 | 238 | 0.56 s | 13.8 ms | pending |
+| 16 | 581 | 0.79 s | 17.9 ms | pending |
+| 32 | 591 | 2.10 s | 42.2 ms | pending |
+| 64 | 568 | 3.34 s | 104.3 ms | pending |
+| 128 | **644** | 3.52 s | 195.2 ms | pending |
+
+The TPU peaks at 644 output tok/s at concurrency 128, which is $1.16 per 1M output tokens at the $2.68/h Spot price. Prompts were 1,492 tokens, and all 768 requests succeeded. Only the 16 full-attention layers hold a KV cache, and vLLM reported 565,703 tokens of TPU KV cache, so memory never limited the sweep. The server was ready 431 s after start, of which 236 s was TorchTPU compilation. Requests disable thinking with `chat_template_kwargs: {enable_thinking: false}` so every response is 150 tokens of report.
+
+The H100 BF16 sweep for this model has not been run yet. There are no H100 throughput, cost or output-agreement numbers for Qwen3.8-27B until it is. Raw data is in `benchmark/results/qwen38/`.
 
 ## Repository layout
 
@@ -71,9 +86,10 @@ The `Deploy site` workflow builds `site/` and publishes it to GitHub Pages on ev
 
 ## Caveats
 
-- There was one run per backend, with one workload shape: a single image, 1,457 prompt tokens and 150 output tokens.
+- There was one run per backend, with one workload shape: a single image, 1,457 prompt tokens for Cosmos3-Super or 1,492 for Qwen3.8-27B, and 150 output tokens.
+- Qwen3.8-27B has TPU v6e results only; its H100 comparison is pending.
 - Quality is measured as agreement with H100 BF16, not accuracy against ground truth, and only covers the first 150 tokens of each report.
 - The comparison is a four-chip TPU slice against one GPU, so cost per token is the fairer headline than raw speed.
 - Prices are list prices on Nov 5, 2026.
 
-Test images come from Argoverse 2 (CC BY-NC-SA 4.0). The model is [nvidia/Cosmos3-Super](https://huggingface.co/nvidia/Cosmos3-Super) (OpenMDW-1.1).
+Test images come from Argoverse 2 (CC BY-NC-SA 4.0). The models are [nvidia/Cosmos3-Super](https://huggingface.co/nvidia/Cosmos3-Super) (OpenMDW-1.1) and [Qwen/Qwen3.8-27B](https://huggingface.co/Qwen/Qwen3.8-27B).

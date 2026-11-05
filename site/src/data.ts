@@ -13,11 +13,11 @@ export type Level = {
   h100fp8Tpot: number | null
 }
 
-export type Example = { file: string; source: string; tpu: string; h100: string; fp8: string | null }
+export type Example = { file: string; source: string; tpu: string; h100: string | null; fp8: string | null }
 
 export type Quality = { images: number; exact_match: string; mean_char_similarity: number; mean_identical_prefix_frac: number; field_agreement: string }
 
-export type ModelData = { levels: Level[]; quality: { tpu: Quality; fp8?: Quality }; examples: Example[]; promptTokens: number | null }
+export type ModelData = { levels: Level[]; quality: { tpu?: Quality; fp8?: Quality }; examples: Example[]; promptTokens: number | null; h100Pending: boolean }
 
 export const results: Record<string, ModelData> = {
   "cosmos3": {
@@ -139,6 +139,102 @@ export const results: Record<string, ModelData> = {
         "fp8": "1. Environment and context\n- Road type: residential street\n- Setting: suburban\n- Time of day: day\n- Weather and visibility: clear, good visibility\n- Road surface: dry, asphalt with some cracks\n\n2. Road layout and drivable space\n- Number of lanes visible: one lane in each direction\n- Ego lane position: center\n- Lane markings: solid yellow line on the left, faded white line on the right\n- Presence of crosswalks: none visible\n- Presence of stop lines: none visible\n- Presence of bike lanes: none visible\n- Presence of medians: none visible\n- Presence of curbs: yes, on both sides\n- Presence of shoulders: yes, on"
       }
     ],
-    "promptTokens": 1457
+    "promptTokens": 1457,
+    "h100Pending": false
+  },
+  "qwen38": {
+    "levels": [
+      {
+        "concurrency": 1,
+        "tpu": 78.144,
+        "h100": null,
+        "h100fp8": null,
+        "tpuTtft": 0.134,
+        "h100Ttft": null,
+        "h100fp8Ttft": null,
+        "tpuTpot": 11.983,
+        "h100Tpot": null,
+        "h100fp8Tpot": null
+      },
+      {
+        "concurrency": 8,
+        "tpu": 237.839,
+        "h100": null,
+        "h100fp8": null,
+        "tpuTtft": 0.558,
+        "h100Ttft": null,
+        "h100fp8Ttft": null,
+        "tpuTpot": 13.846,
+        "h100Tpot": null,
+        "h100fp8Tpot": null
+      },
+      {
+        "concurrency": 16,
+        "tpu": 581.453,
+        "h100": null,
+        "h100fp8": null,
+        "tpuTtft": 0.789,
+        "h100Ttft": null,
+        "h100fp8Ttft": null,
+        "tpuTpot": 17.901,
+        "h100Tpot": null,
+        "h100fp8Tpot": null
+      },
+      {
+        "concurrency": 32,
+        "tpu": 591.288,
+        "h100": null,
+        "h100fp8": null,
+        "tpuTtft": 2.103,
+        "h100Ttft": null,
+        "h100fp8Ttft": null,
+        "tpuTpot": 42.221,
+        "h100Tpot": null,
+        "h100fp8Tpot": null
+      },
+      {
+        "concurrency": 64,
+        "tpu": 568.409,
+        "h100": null,
+        "h100fp8": null,
+        "tpuTtft": 3.343,
+        "h100Ttft": null,
+        "h100fp8Ttft": null,
+        "tpuTpot": 104.278,
+        "h100Tpot": null,
+        "h100fp8Tpot": null
+      },
+      {
+        "concurrency": 128,
+        "tpu": 644.426,
+        "h100": null,
+        "h100fp8": null,
+        "tpuTtft": 3.516,
+        "h100Ttft": null,
+        "h100fp8Ttft": null,
+        "tpuTpot": 195.155,
+        "h100Tpot": null,
+        "h100fp8Tpot": null
+      }
+    ],
+    "quality": {},
+    "examples": [
+      {
+        "file": "000.jpg",
+        "source": "000_02678d04_315969912349927217.jpg",
+        "tpu": "**Summary:** Urban street on a bridge with clear weather, light traffic, and a visible intersection ahead.\n\n1. **Environment and context**\n- Road type: Urban street\n- Setting: Urban\n- Time of day: Day\n- Weather and visibility: Clear, good visibility\n- Road surface: Dry, damaged (visible cracks and patching)\n\n2. **Road layout and drivable space**\n- Number of lanes: Two lanes visible in the ego direction, one in the opposing direction.\n- Ego lane: Rightmost lane.\n- Lane markings: Double yellow line separating opposing traffic; faded white lines separating ego lanes.\n- Features: Curbs on both sides, no visible bike lanes or on-st",
+        "h100": null,
+        "fp8": null
+      },
+      {
+        "file": "012.jpg",
+        "source": "012_15ec0778_315970267899927219.jpg",
+        "tpu": "**Summary:** Clear suburban street with parked cars on the right and no immediate traffic ahead.\n\n1. **Environment and context**\n- Road type: urban street\n- Setting: suburban\n- Time of day: day\n- Weather and visibility: clear, good\n- Road surface: dry\n\n2. **Road layout and drivable space**\n- Number of lanes: 1 lane in ego direction, 1 lane in opposing direction\n- Ego lane position: center\n- Lane markings: solid yellow line on the left, faded or missing on the right\n- Features: curbs, on-street parking on the right\n- Upcoming geometry: straight\n- Obstruction: none observed\n\n3. **Traffic control",
+        "h100": null,
+        "fp8": null
+      }
+    ],
+    "promptTokens": 1492,
+    "h100Pending": true
   }
 }

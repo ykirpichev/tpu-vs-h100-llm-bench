@@ -89,23 +89,35 @@ function ExampleViewer({ examples }: { examples: Example[] }) {
   const [i, setI] = useState(0)
   const ex = examples[Math.min(i, examples.length - 1)]
   if (!ex) return null
-  const refLines = new Set(ex.h100.split("\n"))
+  const refLines = new Set((ex.h100 ?? "").split("\n"))
   const panes: { title: string; text: string | null; color: string }[] = [
-    { title: "H100, BF16 (reference)", text: ex.h100, color: "border-t-[#5b8f00]" },
+    {
+      title: ex.h100 != null ? "H100, BF16 (reference)" : "H100, BF16 (run pending)",
+      text: ex.h100,
+      color: "border-t-[#5b8f00]",
+    },
     { title: "TPU v6e-4, BF16", text: ex.tpu, color: "border-t-[#1a73e8]" },
     ...(ex.fp8 ? [{ title: "H100, FP8", text: ex.fp8, color: "border-t-neutral-400" }] : []),
   ]
+  const label = (e: Example) =>
+    e.h100 == null
+      ? `Frame ${e.file.slice(0, 3)}`
+      : e.tpu === e.h100
+        ? `Frame ${e.file.slice(0, 3)}: TPU identical to H100`
+        : `Frame ${e.file.slice(0, 3)}: TPU differs`
   return (
     <Card>
       <CardHeader>
         <CardTitle>Same image, same prompt, greedy decoding</CardTitle>
         <CardDescription>
-          Lines that differ from the H100 BF16 output are highlighted. Outputs stop at 150 tokens by design.
+          {ex.h100 != null
+            ? "Lines that differ from the H100 BF16 output are highlighted. Outputs stop at 150 tokens by design."
+            : "TPU output only; the H100 BF16 reference for this model has not been run yet. Outputs stop at 150 tokens by design."}
         </CardDescription>
         <div className="flex flex-wrap gap-2 pt-2">
           {examples.map((e, idx) => (
             <Button key={e.file} size="sm" variant={idx === i ? "default" : "outline"} onClick={() => setI(idx)}>
-              {e.tpu === e.h100 ? `Frame ${e.file.slice(0, 3)}: TPU identical to H100` : `Frame ${e.file.slice(0, 3)}: TPU differs`}
+              {label(e)}
             </Button>
           ))}
         </div>
@@ -127,14 +139,22 @@ function ExampleViewer({ examples }: { examples: Example[] }) {
             <div key={p.title} className={`rounded-md border border-t-4 ${p.color} bg-neutral-50`}>
               <p className="border-b px-3 py-2 text-xs font-medium">{p.title}</p>
               <div className="max-h-96 overflow-y-auto px-3 py-2 font-mono text-[11.5px] leading-snug whitespace-pre-wrap">
-                {(p.text ?? "").split("\n").map((line, n) => (
-                  <div
-                    key={n}
-                    className={line && !refLines.has(line) && p.text !== ex.h100 ? "bg-amber-100 text-amber-950" : ""}
-                  >
-                    {line || "\u00a0"}
-                  </div>
-                ))}
+                {p.text == null ? (
+                  <p className="font-sans text-muted-foreground">Pending: the H100 BF16 sweep for this model has not been run.</p>
+                ) : (
+                  p.text.split("\n").map((line, n) => (
+                    <div
+                      key={n}
+                      className={
+                        ex.h100 != null && line && !refLines.has(line) && p.text !== ex.h100
+                          ? "bg-amber-100 text-amber-950"
+                          : ""
+                      }
+                    >
+                      {line || "\u00a0"}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           ))}
@@ -192,19 +212,28 @@ function ModelSwitch({ value, onChange }: { value: ModelInfo["id"]; onChange: (v
           }`}
         >
           {MODELS[id].short}
+          {results[id].h100Pending && <span className="ml-1.5 text-xs font-normal text-muted-foreground">TPU only</span>}
         </button>
       ))}
     </div>
   )
 }
 
-const SPEND: Record<ModelInfo["id"], string> = { cosmos3: "≈ $3.40", qwen38: "QWEN_SPEND" }
+const TPU_TIME: Record<ModelInfo["id"], { label: string; value: string; detail: string }> = {
+  cosmos3: { label: "TPU spend for this model", value: "≈ $3.40", detail: "Spot v6e-4 time, all attempts" },
+  qwen38: {
+    label: "TPU pod time for this model",
+    value: "29 min",
+    detail: "Pod request to last sweep level, including two interrupted bring-ups",
+  },
+}
 
 export default function App() {
   const available = (Object.keys(MODELS) as ModelInfo["id"][]).filter((id) => results[id])
-  const [modelId, setModelId] = useState<ModelInfo["id"]>(available.includes("qwen38") ? "qwen38" : "cosmos3")
+  const [modelId, setModelId] = useState<ModelInfo["id"]>("cosmos3")
   const model = MODELS[modelId]
   const data = results[modelId]
+  const pending = data.h100Pending
   const levels = data.levels
   const costRows = costRowsFor(levels)
   const peakTpu = Math.max(...levels.map((l) => l.tpu ?? 0))
@@ -212,7 +241,7 @@ export default function App() {
   const peakFp8 = Math.max(0, ...levels.map((l) => l.h100fp8 ?? 0))
   const tpuSpot = costRows.find((r) => r.short === "v6e-4 Spot")
   const h100Gpu = costRows.find((r) => r.short === "H100 BF16")
-  const agreeTpu = parsePct(data.quality.tpu.field_agreement)
+  const agreeTpu = parsePct(data.quality.tpu?.field_agreement)
   const agreeFp8 = parsePct(data.quality.fp8?.field_agreement)
   const peakAt = (k: "tpu" | "h100" | "h100fp8", v: number) => levels.find((l) => l[k] === v)?.concurrency
 
@@ -256,7 +285,8 @@ export default function App() {
             We ran the same models, the same vLLM server, the same images and prompt, and the same load generator on a
             4-chip Cloud TPU v6e and on a single NVIDIA H100, for two models with very different architectures: the dense
             Cosmos3-Super Reasoner and the hybrid linear-attention Qwen3.8-27B. This page explains the setup, how we kept
-            the comparison fair, what we measured, and what we learned getting TPU capacity.
+            the comparison fair, what we measured, and what we learned getting TPU capacity. The Qwen3.8-27B H100 run is
+            still pending, so that model currently shows TPU v6e results only.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-3">
@@ -265,29 +295,40 @@ export default function App() {
           </div>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat
-              icon={<Gauge className="size-4" />}
-              label="Peak throughput, TPU vs H100"
-              value={`${(peakTpu / peakH100).toFixed(1)}x`}
-              detail={`${fmt(peakTpu)} vs ${fmt(peakH100)} output tok/s, both BF16`}
-            />
+            {pending ? (
+              <Stat
+                icon={<Gauge className="size-4" />}
+                label="Peak TPU throughput"
+                value={`${fmt(peakTpu)} tok/s`}
+                detail={`v6e-4 BF16 at concurrency ${peakAt("tpu", peakTpu)}; H100 run pending`}
+              />
+            ) : (
+              <Stat
+                icon={<Gauge className="size-4" />}
+                label="Peak throughput, TPU vs H100"
+                value={`${(peakTpu / peakH100).toFixed(1)}x`}
+                detail={`${fmt(peakTpu)} vs ${fmt(peakH100)} output tok/s, both BF16`}
+              />
+            )}
             <Stat
               icon={<DollarSign className="size-4" />}
               label="Cost per 1M output tokens"
               value={tpuSpot ? `$${tpuSpot.perM.toFixed(2)}` : "–"}
-              detail={`v6e-4 Spot, vs $${h100Gpu?.perM.toFixed(2)} on H100 (GPU only)`}
+              detail={h100Gpu ? `v6e-4 Spot, vs $${h100Gpu.perM.toFixed(2)} on H100 (GPU only)` : "v6e-4 Spot; H100 run pending"}
             />
             <Stat
               icon={<ShieldCheck className="size-4" />}
               label="Output agreement"
-              value={agreeTpu != null ? `${Math.round(agreeTpu)}%` : "–"}
+              value={agreeTpu != null ? `${Math.round(agreeTpu)}%` : "Pending"}
               detail={
-                agreeFp8 != null
-                  ? `of structured fields match H100 BF16; H100 FP8 manages ${Math.round(agreeFp8)}%`
-                  : "of structured fields match H100 BF16"
+                agreeTpu == null
+                  ? "Needs the H100 BF16 reference run"
+                  : agreeFp8 != null
+                    ? `of structured fields match H100 BF16; H100 FP8 manages ${Math.round(agreeFp8)}%`
+                    : "of structured fields match H100 BF16"
               }
             />
-            <Stat icon={<Cpu className="size-4" />} label="TPU spend for this model" value={SPEND[modelId]} detail="Spot v6e-4 time, all attempts" />
+            <Stat icon={<Cpu className="size-4" />} {...TPU_TIME[modelId]} />
           </div>
         </section>
 
@@ -345,14 +386,14 @@ export default function App() {
                         {fmt(l.tpu)}
                       </TableCell>
                       <TableCell className={`text-right ${l.h100 === peakH100 ? "font-semibold text-[#5b8f00]" : ""}`}>
-                        {fmt(l.h100)}
+                        {pending ? <span className="text-muted-foreground">pending</span> : fmt(l.h100)}
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">{fmt(l.h100fp8)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{pending ? "pending" : fmt(l.h100fp8)}</TableCell>
                       <TableCell className="text-right">
-                        {fmt(l.tpuTtft, 2)} s / {fmt(l.h100Ttft, 2)} s
+                        {fmt(l.tpuTtft, 2)} s / {pending ? "pending" : `${fmt(l.h100Ttft, 2)} s`}
                       </TableCell>
                       <TableCell className="text-right">
-                        {fmt(l.tpuTpot, 1)} ms / {fmt(l.h100Tpot, 1)} ms
+                        {fmt(l.tpuTpot, 1)} ms / {pending ? "pending" : `${fmt(l.h100Tpot, 1)} ms`}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -360,8 +401,8 @@ export default function App() {
             </Table>
           </div>
           <p className="text-sm text-muted-foreground">
-            Peaks: v6e-4 {fmt(peakTpu)} tok/s at concurrency {peakAt("tpu", peakTpu)}; H100 BF16 {fmt(peakH100)} tok/s at{" "}
-            {peakAt("h100", peakH100)}
+            Peaks: v6e-4 {fmt(peakTpu)} tok/s at concurrency {peakAt("tpu", peakTpu)};{" "}
+            {pending ? "H100 BF16 run pending" : `H100 BF16 ${fmt(peakH100)} tok/s at ${peakAt("h100", peakH100)}`}
             {peakFp8 > 0 ? `; H100 FP8 ${fmt(peakFp8)} tok/s at ${peakAt("h100fp8", peakFp8)}` : ""}.
           </p>
 
@@ -387,6 +428,7 @@ export default function App() {
           <h3 className="pt-6 text-xl font-semibold">Cost per million output tokens</h3>
           <p className="max-w-3xl text-muted-foreground">
             Hourly price divided by each setup's best measured throughput. Prices are list prices on the day of the run.
+            {pending && " H100 rows appear once the H100 sweep for this model has run."}
           </p>
           <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
             <Card>
@@ -417,12 +459,20 @@ export default function App() {
           </div>
 
           <h3 className="pt-6 text-xl font-semibold">Output quality</h3>
-          <p className="max-w-3xl text-muted-foreground">
-            We compared the greedy outputs for {data.quality.tpu.images} frames against H100 BF16. "Field agreement"
-            parses the <code className="rounded bg-neutral-100 px-1">- Field: value</code> lines of the scene report and
-            checks whether both backends wrote the same value. This measures agreement between backends, not accuracy
-            against ground truth.
-          </p>
+          {data.quality.tpu ? (
+            <p className="max-w-3xl text-muted-foreground">
+              We compared the greedy outputs for {data.quality.tpu.images} frames against H100 BF16. "Field agreement"
+              parses the <code className="rounded bg-neutral-100 px-1">- Field: value</code> lines of the scene report and
+              checks whether both backends wrote the same value. This measures agreement between backends, not accuracy
+              against ground truth.
+            </p>
+          ) : (
+            <p className="max-w-3xl text-muted-foreground">
+              Output agreement is measured against H100 BF16, and that run is still pending for {model.short}. The TPU
+              outputs below are the raw greedy results from the sweep.
+            </p>
+          )}
+          {data.quality.tpu && (
           <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
@@ -452,6 +502,7 @@ export default function App() {
               </TableBody>
             </Table>
           </div>
+          )}
           <ExampleViewer key={modelId} examples={data.examples} />
         </Section>
 
@@ -512,7 +563,7 @@ export default function App() {
                   </dd>
                   <dt className="text-muted-foreground">Image</dt>
                   <dd>
-                    <code>TPU_IMAGE_LABEL</code>
+                    <code>vllm/vllm-torchtpu:v0.32.0</code>
                   </dd>
                   <dt className="text-muted-foreground">Parallelism</dt>
                   <dd>Tensor parallel 4</dd>
@@ -679,6 +730,11 @@ export default function App() {
                 Server start took about 12 minutes, of which about 6.5 were TorchTPU compilation. Persisting the compile
                 cache to a disk or GCS would make each preemption restart much cheaper.
               </p>
+              <p>
+                The Qwen3.8-27B TPU sweep used the same GKE Spot setup. Its first two bring-ups were interrupted before the
+                server was ready; the third, on a new node, was serving after 431 s and finished all six levels, 768/768
+                requests OK, in under six minutes.
+              </p>
             </CardContent>
           </Card>
         </Section>
@@ -764,7 +820,11 @@ modal run modal_app.py --variant fp8         # optional reference`}</Code>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               <ul className="list-disc space-y-1 pl-5">
-                <li>One run per backend, one workload shape (single image, 1,457 prompt tokens, 150 output tokens).</li>
+                <li>
+                  One run per backend, one workload shape (single image, 1,457 prompt tokens for Cosmos3-Super and 1,492
+                  for Qwen3.8-27B, 150 output tokens).
+                </li>
+                <li>Qwen3.8-27B has TPU v6e results only; its H100 sweep is pending.</li>
                 <li>Outputs are capped at 150 tokens, so quality covers only the first three report sections.</li>
                 <li>Quality is agreement with H100 BF16, not accuracy against ground truth.</li>
                 <li>
@@ -781,7 +841,8 @@ modal run modal_app.py --variant fp8         # optional reference`}</Code>
       <footer className="border-t bg-neutral-50">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>
-            Test images: Argoverse 2 (CC BY-NC-SA 4.0). Model: nvidia/Cosmos3-Super (OpenMDW-1.1). Built for TPU Builders.
+            Test images: Argoverse 2 (CC BY-NC-SA 4.0). Models: nvidia/Cosmos3-Super (OpenMDW-1.1), Qwen/Qwen3.8-27B.
+            Built for TPU Builders.
           </p>
           <a href={REPO_URL} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-neutral-900">
             Source and raw data <ArrowUpRight className="size-4" />

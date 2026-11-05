@@ -61,8 +61,20 @@ export const MODELS: Record<ModelInfo["id"], ModelInfo> = {
     modelArgs: "",
     plugin: null,
     requestExtra: `"chat_template_kwargs": {"enable_thinking": false}`,
-    scaling: { title: "How each side scales", body: [] },
-    h100Edge: { title: "Where the H100 holds up", body: [] },
+    scaling: {
+      title: "How the TPU scales",
+      body: [
+        "Only the 16 full-attention layers keep a KV cache; the 48 Gated DeltaNet layers keep a fixed-size state. After the weights, vLLM reported a TPU KV cache of 565,703 tokens, 138 concurrent 4,096-token requests, so memory never limits this sweep.",
+        "Throughput climbs to 581 tok/s at concurrency 16, stays between 568 and 591 tok/s up to 64, and peaks at 644 tok/s at 128. Per-token latency rises from 12 ms at concurrency 1 to 195 ms at 128.",
+      ],
+    },
+    h100Edge: {
+      title: "H100 comparison: pending",
+      body: [
+        "The H100 BF16 sweep for Qwen3.8-27B has not been run yet, so there is no H100 throughput, H100 cost or output-agreement figure for this model. Those columns show \"pending\" until the run lands.",
+        "Server start on the TPU took 431 s, including 236 s of TorchTPU compilation. Two earlier bring-up attempts on the Spot pool were interrupted before the server was ready.",
+      ],
+    },
     quote: "Field agreement with H100 BF16",
   },
 }
